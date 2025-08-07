@@ -1,8 +1,8 @@
-"use clinet";
+"use client";
 import { useUser } from "@clerk/nextjs";
 import { boardDataService, boardService } from "../services";
 import { useEffect, useState } from "react";
-import { Board } from "../supabase/models";
+import { Board, Column } from "../supabase/models";
 import { useSupabase } from "../supabase/SupabaseProvider";
 
 const useBoards = () => {
@@ -24,7 +24,7 @@ const useBoards = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await boardService.getBoard(supabase!, user.id);
+      const data = await boardService.getBoards(supabase!, user.id);
       setBoards(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load Board.");
@@ -56,4 +56,55 @@ const useBoards = () => {
   return { boards, loading, error, createBoard };
 };
 
-export default useBoards;
+const useBoard = (boardId: string) => {
+  const { supabase } = useSupabase();
+  const [board, setBoard] = useState<Board | null>(null);
+  const [columns, setColumns] = useState<Column[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (boardId) {
+      loadBoard();
+    }
+  }, [boardId, supabase]);
+
+  async function loadBoard() {
+    if (!boardId) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await boardDataService.getBoardWithColumns(
+        supabase!,
+        boardId
+      );
+      setBoard(data.boards);
+      setColumns(data.columns);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load Board");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function updateBoard(boardId: string, updates: Partial<Board>) {
+    try {
+      const updatedBoard = await boardService.updateBoard(
+        supabase!,
+        boardId,
+        updates
+      );
+      setBoard(updatedBoard);
+      return updatedBoard;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to Update the Board"
+      );
+    }
+    return;
+  }
+
+  return { board, columns, updateBoard, loading, error };
+};
+
+export { useBoards, useBoard };
