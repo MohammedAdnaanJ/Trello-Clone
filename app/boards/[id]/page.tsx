@@ -1,18 +1,69 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useBoard } from "@/lib/hooks/useBoards";
+import { ColumnWithTasks } from "@/lib/supabase/models";
+import { Description } from "@radix-ui/react-dialog";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+
+function Column({
+  column,
+}: // children,
+// onCreateTask,
+// onEditColumn,
+{
+  column: ColumnWithTasks;
+  children: React.ReactNode;
+  onCreateTask: (taskData: any) => Promise<void>;
+  onEditColumn: (column: ColumnWithTasks) => void;
+}) {
+  return (
+    <div className="w-full lg:flex-shrink-0 lg:w-80">
+      <div className="bg-white rounded-lg hadow-m border">
+        {/* Column Header */}
+        <div className="p-3 sm:p-4 border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 min-w-0">
+              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                {column?.title}
+              </h3>
+              <Badge variant="secondary" className="text-sm fle-shrink-0">
+                {column.tasks.length}
+              </Badge>
+            </div>
+            <Button variant="ghost" size="sm" className="flex-shrink-0">
+              <MoreHorizontal />
+            </Button>
+          </div>
+        </div>
+
+        {/* Column Content */}
+        <div className="p-2">{}</div>
+      </div>
+    </div>
+  );
+}
 
 const BoardPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +85,21 @@ const BoardPage = () => {
         color: newColor || board.color,
       });
       setIsEditingTitle(false);
-    } catch (error) {}
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const onhandleCreateTask = async (e: any) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const taskData = {
+      title: formData.get("title") as string,
+      description: (formData.get("description") as string) || undefined,
+      assignee: (formData.get("assignee") as string) || undefined,
+      dueDate: (formData.get("dueDate") as string) || undefined,
+      prirority: formData.get("prirority") as "low" | "medium" | "high",
+    };
   };
 
   return (
@@ -159,15 +224,101 @@ const BoardPage = () => {
         </DialogContent>
       </Dialog>
       {/* Board Content */}
-      <main>
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
         {/* stats */}
-        <div>
-          <div>
-            <div>
-              <span>Total Tasks:</span>
-              {columns.reduce((sum,col)=>sum+ +(col.tasks.length),0)}
+        <div className="flex flex-col sm:flex-row items-cneter sm:justify-between mb-6 space-y-4 sm:space-y-0">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">Total Tasks: </span>
+              {columns.reduce((sum, col) => sum + col.tasks.length, 0)}
             </div>
           </div>
+
+          {/* Add Tasks Dialog */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto">
+                <Plus /> Add Tasks
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="w-[95vw] max-w-[425px] mx-auto">
+              <DialogHeader className="flex items-start">
+                <DialogTitle>Create New Tasks</DialogTitle>
+                <p className="text-sm text-gray-600">
+                  Add a tasks to the board
+                </p>
+              </DialogHeader>
+              <form className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Title *</Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    placeholder="Enter Task Title"
+                  ></Input>
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    placeholder="Enter Task Description"
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Assignee</Label>
+                  <Input
+                    id="assignee"
+                    name="assignee"
+                    placeholder="Who should do this?"
+                  ></Input>
+                </div>
+                <div className="space-y-2">
+                  <Label>Priority</Label>
+                  <Select name="priority" defaultValue="medium">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["low", "medium", "high"].map((priority, key) => (
+                        <SelectItem key={key} value={priority}>
+                          {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Due Date</Label>
+                  <Input type="date" id="dueDate" name="dueDate" />
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="submit">Create Tasks</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Board Columns */}
+        <div>
+          {columns.map((column, key) => (
+            <Column
+              key={key}
+              column={column}
+              onCreateTask={() => {}}
+              onCreateEdit={() => {}}
+            >
+              <div>
+                {column.tasks.map((task, key) => (
+                  <div key={key}>{task.title}</div>
+                ))}
+              </div>
+            </Column>
+          ))}
         </div>
       </main>
     </div>

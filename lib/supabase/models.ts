@@ -10,12 +10,16 @@ export interface Board {
 
 export interface Column {
   id: string;
-  user_id: string
+  user_id: string;
   board_id: string;
   title: string;
   sort_order: number;
   created_at: string;
 }
+
+export type ColumnWithTasks = Column & {
+  tasks: Task[];
+};
 
 export interface Task {
   id: string;

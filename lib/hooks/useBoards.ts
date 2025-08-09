@@ -2,7 +2,7 @@
 import { useUser } from "@clerk/nextjs";
 import { boardDataService, boardService } from "../services";
 import { useEffect, useState } from "react";
-import { Board, Column } from "../supabase/models";
+import { Board, Column, ColumnWithTasks } from "../supabase/models";
 import { useSupabase } from "../supabase/SupabaseProvider";
 
 const useBoards = () => {
@@ -59,7 +59,7 @@ const useBoards = () => {
 const useBoard = (boardId: string) => {
   const { supabase } = useSupabase();
   const [board, setBoard] = useState<Board | null>(null);
-  const [columns, setColumns] = useState<Column[]>([]);
+  const [columns, setColumns] = useState<ColumnWithTasks[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +71,7 @@ const useBoard = (boardId: string) => {
 
   async function loadBoard() {
     if (!boardId) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -78,10 +79,10 @@ const useBoard = (boardId: string) => {
         supabase!,
         boardId
       );
-      setBoard(data.boards);
-      setColumns(data.columns);
+      setBoard(data.board);
+      setColumns(data.columnsWithTasks);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load Board");
+      setError(err instanceof Error ? err.message : "Failed to load boards.");
     } finally {
       setLoading(false);
     }
