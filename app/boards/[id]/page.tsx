@@ -3,6 +3,7 @@
 import Navbar from "@/components/Navbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -21,18 +22,17 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useBoard } from "@/lib/hooks/useBoards";
-import { ColumnWithTasks } from "@/lib/supabase/models";
-import { Description } from "@radix-ui/react-dialog";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { ColumnWithTasks, Task } from "@/lib/supabase/models";
+import { Calendar, MoreHorizontal, Plus, User } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 
 function Column({
   column,
-}: // children,
-// onCreateTask,
-// onEditColumn,
-{
+  children,
+  onCreateTask,
+  onEditColumn,
+}: {
   column: ColumnWithTasks;
   children: React.ReactNode;
   onCreateTask: (taskData: any) => Promise<void>;
@@ -40,7 +40,7 @@ function Column({
 }) {
   return (
     <div className="w-full lg:flex-shrink-0 lg:w-80">
-      <div className="bg-white rounded-lg hadow-m border">
+      <div className="bg-white rounded-lg shadow-sm border">
         {/* Column Header */}
         <div className="p-3 sm:p-4 border-b">
           <div className="flex items-center justify-between">
@@ -59,15 +59,75 @@ function Column({
         </div>
 
         {/* Column Content */}
-        <div className="p-2">{}</div>
+        <div className="p-2">{children}</div>
       </div>
     </div>
   );
 }
 
+const Task = ({ task }: { task: Task }) => {
+  const getPriorityColor = (priority: "low" | "medium" | "high"): string => {
+    switch (priority) {
+      case "high":
+        return "bg-red-500";
+
+      case "medium":
+        return "bg-yellow-500";
+      case "low":
+        return "bg-green-500";
+      default:
+        return "bg-yellow-500";
+    }
+  };
+
+  return (
+    <div>
+      <Card className="cursor-pointer hover:shadow-md transition-shadow">
+        <CardContent className="p-3 sm:p-4">
+          <div className="space-y-2 sm:space-y-3">
+            {/* Tasks Header */}
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-gray-900 text-sm leading-tight flex-1 min-w-0 pr-2">
+                {task.title}
+              </h4>
+            </div>
+            {/* Task Description */}
+            <p className="text-sm text-gray-600 line-clamp-2">
+              {task.description || "No Description"}
+            </p>
+
+            {/* Task Meta */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
+                {task.assignee && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <User />
+                    <span>{task.assignee}</span>
+                  </div>
+                )}
+                {task.due_date && (
+                  <div>
+                    <Calendar />
+                    <span>{task.due_date}</span>
+                  </div>
+                )}
+                <div
+                  className={`size-2 rounded-full flex-shrink-0 ${getPriorityColor(
+                    task.priority
+                  )}`}
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 const BoardPage = () => {
   const { id } = useParams<{ id: string }>();
-  const { board, updateBoard, columns } = useBoard(id);
+  const { board, updateBoard, columns, createRealTask } = useBoard(id);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -90,7 +150,22 @@ const BoardPage = () => {
     }
   };
 
-  const onhandleCreateTask = async (e: any) => {
+  const createTask = async (taskData: {
+    title: string;
+    description?: string;
+    assignee?: string;
+    dueDate?: string;
+    priority?: "low" | "medium" | "high";
+  }) => {
+    const targetColumn = columns[0];
+    if (!targetColumn) {
+      throw new Error("No Columns available to add tasks");
+    }
+
+    await createRealTask(targetColumn.id, taskData);
+  };
+
+  const handleCreateTask = async (e: any) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const taskData = {
@@ -98,8 +173,18 @@ const BoardPage = () => {
       description: (formData.get("description") as string) || undefined,
       assignee: (formData.get("assignee") as string) || undefined,
       dueDate: (formData.get("dueDate") as string) || undefined,
-      prirority: formData.get("prirority") as "low" | "medium" | "high",
+      prirority:
+        (formData.get("prirority") as "low" | "medium" | "high") || "high",
     };
+
+    if (taskData.title.trim()) {
+      await createTask(taskData);
+
+      const trigger = document.querySelector(
+        '[data-state="open"]'
+      ) as HTMLElement;
+      if (trigger) trigger.click();
+    }
   };
 
   return (
@@ -223,6 +308,7 @@ const BoardPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
       {/* Board Content */}
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
         {/* stats */}
@@ -248,7 +334,7 @@ const BoardPage = () => {
                   Add a tasks to the board
                 </p>
               </DialogHeader>
-              <form className="space-y-4">
+              <form className="space-y-4" onSubmit={handleCreateTask}>
                 <div className="space-y-2">
                   <Label>Title *</Label>
                   <Input
@@ -304,17 +390,27 @@ const BoardPage = () => {
         </div>
 
         {/* Board Columns */}
-        <div>
+        <div
+          className="
+    flex flex-col lg:flex-row lg:space-x-6 lg:overflow-x-auto 
+    lg:pb-6 lg:px-2 lg:-mx-2 
+    lg:[&::-webkit-scrollbar]:h-2
+    lg:[&::-webkit-scrollbar-track]:bg-gray-100
+    lg:[&::-webkit-scrollbar-thumb]:bg-gray-300
+    lg:[&::-webkit-scrollbar-thumb]:rounded-full
+    space-y-4 lg:space-y-0
+  "
+        >
           {columns.map((column, key) => (
             <Column
               key={key}
               column={column}
-              onCreateTask={() => {}}
+              onCreateTask={createTask}
               onCreateEdit={() => {}}
             >
-              <div>
+              <div className="space-y-3 ">
                 {column.tasks.map((task, key) => (
-                  <div key={key}>{task.title}</div>
+                  <Task task={task} key={key} />
                 ))}
               </div>
             </Column>

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import StatCard from "./components/StatCard";
 
 const Dashboard = () => {
   const { createBoard, boards, loading, error } = useBoards();
@@ -68,81 +69,37 @@ const Dashboard = () => {
         </div>
         <section>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-            <Card>
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg sm:text-md font-medium text-gray-600">
-                      Total Boards
-                    </p>
-                    <p className="text-lg sm:text-2xl font-bold text-gray-900">
-                      {boards.length}
-                    </p>
-                  </div>
-                  <div className="size-10 sm:size-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Trello className="size-5 sm:size-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg sm:text-md font-medium text-gray-600">
-                      Recent Activity
-                    </p>
-                    <p className="text-lg sm:text-2xl font-bold text-gray-900">
-                      {
-                        boards.filter((board) => {
-                          const updatedAt = new Date(board.updated_at);
-                          const oneWeekAgo = new Date();
-                          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                          return updatedAt > oneWeekAgo;
-                        }).length
-                      }
-                    </p>
-                  </div>
-                  <div className="size-10 sm:size-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    📊
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg sm:text-md font-medium text-gray-600">
-                      Active Projects
-                    </p>
-                    <p className="text-lg sm:text-2xl font-bold text-gray-900">
-                      {boards.length}
-                    </p>
-                  </div>
-                  <div className="size-10 sm:size-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Rocket className="size-5 sm:size-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg sm:text-md font-medium text-gray-600">
-                      Total Boards
-                    </p>
-                    <p className="text-lg sm:text-2xl font-bold text-gray-900">
-                      {boards.length}
-                    </p>
-                  </div>
-                  <div className="size-10 sm:size-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Trello className="size-5 sm:size-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <StatCard
+              title="Total Boards"
+              value={boards.length}
+              icon={<Trello className="size-5 sm:size-6 text-blue-600" />}
+              iconBg="bg-blue-100"
+            />
+            <StatCard
+              title="Recent Activity"
+              value={
+                boards.filter((board) => {
+                  const updatedAt = new Date(board.updated_at);
+                  const oneWeekAgo = new Date();
+                  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                  return updatedAt > oneWeekAgo;
+                }).length
+              }
+              icon={<div>📊</div>}
+              iconBg="bg-purple-100"
+            />
+            <StatCard
+              title="Active Projects"
+              value={boards.length}
+              icon={<Rocket className="size-5 sm:size-6 text-green-600" />}
+              iconBg="bg-green-100"
+            />
+            <StatCard
+              title="Total Boards"
+              value={boards.length}
+              icon={<Trello className="size-5 sm:size-6 text-blue-600" />}
+              iconBg="bg-blue-100"
+            />
           </div>
         </section>
         {/* Boards */}
@@ -157,9 +114,9 @@ const Dashboard = () => {
 
             <div
               className="flex flex-col sm:flex-row
-            items-stretch sm:items-center space-y-2 sm:space-y-0"
+            items-stretch sm:items-center space-x-1 sm:space-x-2 space-y-2 sm:space-y-0"
             >
-              <div className="flex items-center space-x-2 border bg-white p-1 rounded">
+              <div className="flex items-center border bg-white rounded">
                 <Button
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="sm"
@@ -180,6 +137,7 @@ const Dashboard = () => {
               </Button>
 
               <Button
+                size="sm"
                 className="w-full sm:w-auto cursor-pointer"
                 onClick={handleCreateBoard}
               >
@@ -216,7 +174,9 @@ const Dashboard = () => {
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 sm:p-8">
-                      <CardTitle className="text-base sm:text-lg mb-2 group-hover:text-blue-600 transition-colors">
+                      <CardTitle
+                        className={`text-base sm:text-lg mb-2 group-hover:text-${board.color} transition-colors`}
+                      >
                         {board.title}
                       </CardTitle>
                       <CardDescription className="text-sm mb-4">
@@ -236,15 +196,6 @@ const Dashboard = () => {
                   </Card>
                 </Link>
               ))}
-
-              <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors cursor-pointer group">
-                <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center h-full min-h-[200px]">
-                  <Plus className="size-6 sm:size-8 text-gray-400 group-hover:text-blue-400 mb-2" />
-                  <p className="text-sm sm:text-base text-gray-600 group-hover:text-blue-600 font-medium">
-                    Create New Board
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           ) : (
             <div>
@@ -261,7 +212,9 @@ const Dashboard = () => {
                         </div>
                       </CardHeader>
                       <CardContent className="p-4 sm:p-8">
-                        <CardTitle className="text-base sm:text-lg mb-2 group-hover:text-blue-600 transition-colors">
+                        <CardTitle
+                          className={`text-base sm:text-lg mb-2 group-hover:text-${board.color} transition-colors`}
+                        >
                           {board.title}
                         </CardTitle>
                         <CardDescription className="text-sm mb-4">
@@ -282,15 +235,6 @@ const Dashboard = () => {
                   </Link>
                 </div>
               ))}
-
-              <Card className="mt-4 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors cursor-pointer group">
-                <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center h-full min-h-[200px]">
-                  <Plus className="size-6 sm:size-8 text-gray-400 group-hover:text-blue-400 mb-2" />
-                  <p className="text-sm sm:text-base text-gray-600 group-hover:text-blue-600 font-medium">
-                    Create New Board
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           )}
         </section>
