@@ -140,7 +140,28 @@ const useBoard = (boardId: string) => {
     }
   }
 
-  return { board, columns, loading, error, updateBoard, createRealTask };
+  async function moveTask(
+    taskId: string,
+    newColumnId: string,
+    newOrder: number
+  ) {
+    try {
+      await taskService.moveTask(supabase!,taskId, newColumnId, newOrder)
+    } catch (error) {
+      
+    }
+  }
+
+  return {
+    board,
+    columns,
+    loading,
+    error,
+    updateBoard,
+    createRealTask,
+    setColumns,
+    moveTask,
+  };
 };
 
 export { useBoards, useBoard };

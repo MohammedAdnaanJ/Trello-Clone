@@ -26,8 +26,26 @@ import { ColumnWithTasks, Task } from "@/lib/supabase/models";
 import { Calendar, MoreHorizontal, Plus, User } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  rectIntersection,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-function Column({
+function DroppableColumn({
   column,
   children,
   onCreateTask,
@@ -38,8 +56,14 @@ function Column({
   onCreateTask: (taskData: any) => Promise<void>;
   onEditColumn: (column: ColumnWithTasks) => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.id });
   return (
-    <div className="w-full lg:flex-shrink-0 lg:w-80">
+    <div
+      ref={setNodeRef}
+      className={`w-full lg:flex-shrink-0 lg:w-80 ${
+        isOver ? "bg-blue-50 rounded-lg" : ""
+      }`}
+    >
       <div className="bg-white rounded-lg shadow-sm border">
         {/* Column Header */}
         <div className="p-3 sm:p-4 border-b">
@@ -59,13 +83,99 @@ function Column({
         </div>
 
         {/* Column Content */}
-        <div className="p-2">{children}</div>
+        <div className="p-2">
+          {children}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full mt-3 text-gray-500 hover:text-gray-700"
+              >
+                <Plus /> Add Tasks
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="w-[95vw] max-w-[425px] mx-auto">
+              <DialogHeader className="flex items-start">
+                <DialogTitle>Create New Tasks</DialogTitle>
+                <p className="text-sm text-gray-600">
+                  Add a tasks to the board
+                </p>
+              </DialogHeader>
+              <form className="space-y-4" onSubmit={onCreateTask}>
+                <div className="space-y-2">
+                  <Label>Title *</Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    placeholder="Enter Task Title"
+                  ></Input>
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    placeholder="Enter Task Description"
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Assignee</Label>
+                  <Input
+                    id="assignee"
+                    name="assignee"
+                    placeholder="Who should do this?"
+                  ></Input>
+                </div>
+                <div className="space-y-2">
+                  <Label>Priority</Label>
+                  <Select name="priority" defaultValue="medium">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["low", "medium", "high"].map((priority, key) => (
+                        <SelectItem key={key} value={priority}>
+                          {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Due Date</Label>
+                  <Input type="date" id="dueDate" name="dueDate" />
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="submit">Create Tasks</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </div>
   );
 }
 
-const Task = ({ task }: { task: Task }) => {
+const SortableTask = ({ task }: { task: Task }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const styles = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   const getPriorityColor = (priority: "low" | "medium" | "high"): string => {
     switch (priority) {
       case "high":
@@ -81,7 +191,7 @@ const Task = ({ task }: { task: Task }) => {
   };
 
   return (
-    <div>
+    <div style={styles} ref={setNodeRef} {...listeners} {...attributes}>
       <Card className="cursor-pointer hover:shadow-md transition-shadow">
         <CardContent className="p-3 sm:p-4">
           <div className="space-y-2 sm:space-y-3">
@@ -101,22 +211,22 @@ const Task = ({ task }: { task: Task }) => {
               <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
                 {task.assignee && (
                   <div className="flex items-center space-x-2 text-sm text-gray-500">
-                    <User />
-                    <span>{task.assignee}</span>
+                    <User className="size-4" />
+                    <span className="truncate">{task.assignee}</span>
                   </div>
                 )}
                 {task.due_date && (
-                  <div>
-                    <Calendar />
-                    <span>{task.due_date}</span>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <Calendar className="size-4" />
+                    <span className="truncate">{task.due_date}</span>
                   </div>
                 )}
-                <div
-                  className={`size-2 rounded-full flex-shrink-0 ${getPriorityColor(
-                    task.priority
-                  )}`}
-                />
               </div>
+              <div
+                className={`size-2 rounded-full flex-shrink-0 ${getPriorityColor(
+                  task.priority
+                )}`}
+              />
             </div>
           </div>
         </CardContent>
@@ -125,14 +235,82 @@ const Task = ({ task }: { task: Task }) => {
   );
 };
 
+const TaskOverlay = ({ task }: { task: Task }) => {
+  const getPriorityColor = (priority: "low" | "medium" | "high"): string => {
+    switch (priority) {
+      case "high":
+        return "bg-red-500";
+      case "medium":
+        return "bg-yellow-500";
+      case "low":
+        return "bg-green-500";
+      default:
+        return "bg-yellow-500";
+    }
+  };
+
+  return (
+    <Card className="cursor-pointer hover:shadow-md transition-shadow">
+      <CardContent className="p-3 sm:p-4">
+        <div className="space-y-2 sm:space-y-3">
+          {/* Tasks Header */}
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-gray-900 text-sm leading-tight flex-1 min-w-0 pr-2">
+              {task.title}
+            </h4>
+          </div>
+          {/* Task Description */}
+          <p className="text-sm text-gray-600 line-clamp-2">
+            {task.description || "No Description"}
+          </p>
+
+          {/* Task Meta */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
+              {task.assignee && (
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <User className="size-4" />
+                  <span className="truncate">{task.assignee}</span>
+                </div>
+              )}
+              {task.due_date && (
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <Calendar className="size-4" />
+                  <span className="truncate">{task.due_date}</span>
+                </div>
+              )}
+            </div>
+            <div
+              className={`size-2 rounded-full flex-shrink-0 ${getPriorityColor(
+                task.priority
+              )}`}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const BoardPage = () => {
   const { id } = useParams<{ id: string }>();
-  const { board, updateBoard, columns, createRealTask } = useBoard(id);
+  const { board, updateBoard, columns, createRealTask, setColumns, moveTask } =
+    useBoard(id);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newColor, setNewColor] = useState("");
+
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const handleUpdateBoard = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,6 +362,99 @@ const BoardPage = () => {
         '[data-state="open"]'
       ) as HTMLElement;
       if (trigger) trigger.click();
+    }
+  };
+
+  const handleDragStart = (e: DragStartEvent) => {
+    const taskId = e.active.id as string;
+    const task = columns
+      .flatMap((col) => col.tasks)
+      .find((task) => task.id === taskId);
+
+    if (task) {
+      setActiveTask(task);
+    }
+  };
+
+  function handleDragOver(event: DragOverEvent) {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const sourceColumn = columns.find((col) =>
+      col.tasks.some((task) => task.id === activeId)
+    );
+
+    const targetColumn = columns.find((col) =>
+      col.tasks.some((task) => task.id === overId)
+    );
+
+    if (!sourceColumn || !targetColumn) return;
+
+    if (sourceColumn.id === targetColumn.id) {
+      const activeIndex = sourceColumn.tasks.findIndex(
+        (task) => task.id === activeId
+      );
+
+      const overIndex = targetColumn.tasks.findIndex(
+        (task) => task.id === overId
+      );
+
+      if (activeIndex !== overIndex) {
+        setColumns((prev: ColumnWithTasks[]) => {
+          const newColumns = [...prev];
+          const column = newColumns.find((col) => col.id === sourceColumn.id);
+          if (column) {
+            const tasks = [...column.tasks];
+            const [removed] = tasks.splice(activeIndex, 1);
+            tasks.splice(overIndex, 0, removed);
+            column.tasks = tasks;
+          }
+          return newColumns;
+        });
+      }
+    }
+  }
+  const handleDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const overId = over.id as string;
+
+    const targetColumn = columns.find((col) => col.id === overId);
+    if (targetColumn) {
+      const sourceColumn = columns.find((col) =>
+        col.tasks.some((task) => task.id === taskId)
+      );
+      if (sourceColumn && sourceColumn.id !== targetColumn.id) {
+        await moveTask(taskId, targetColumn.id, targetColumn.tasks.length);
+      }
+    } else {
+      // Check to see if were dropping on another task
+      const sourceColumn = columns.find((col) =>
+        col.tasks.some((task) => task.id === taskId)
+      );
+
+      const targetColumn = columns.find((col) =>
+        col.tasks.some((task) => task.id === overId)
+      );
+
+      if (sourceColumn && targetColumn) {
+        const oldIndex = sourceColumn.tasks.findIndex(
+          (task) => task.id === taskId
+        );
+
+        const newIndex = targetColumn.tasks.findIndex(
+          (task) => task.id === overId
+        );
+
+        if (oldIndex !== newIndex) {
+          await moveTask(taskId, targetColumn.id, newIndex);
+        }
+      }
     }
   };
 
@@ -390,8 +661,15 @@ const BoardPage = () => {
         </div>
 
         {/* Board Columns */}
-        <div
-          className="
+        <DndContext
+          sensors={sensors}
+          collisionDetection={rectIntersection}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div
+            className="
     flex flex-col lg:flex-row lg:space-x-6 lg:overflow-x-auto 
     lg:pb-6 lg:px-2 lg:-mx-2 
     lg:[&::-webkit-scrollbar]:h-2
@@ -400,22 +678,32 @@ const BoardPage = () => {
     lg:[&::-webkit-scrollbar-thumb]:rounded-full
     space-y-4 lg:space-y-0
   "
-        >
-          {columns.map((column, key) => (
-            <Column
-              key={key}
-              column={column}
-              onCreateTask={createTask}
-              onCreateEdit={() => {}}
-            >
-              <div className="space-y-3 ">
-                {column.tasks.map((task, key) => (
-                  <Task task={task} key={key} />
-                ))}
-              </div>
-            </Column>
-          ))}
-        </div>
+          >
+            {columns.map((column, key) => (
+              <DroppableColumn
+                key={key}
+                column={column}
+                onCreateTask={handleCreateTask}
+                onCreateEdit={() => {}}
+              >
+                <SortableContext
+                  items={column.tasks.map((task) => task.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3 ">
+                    {column.tasks.map((task, key) => (
+                      <SortableTask task={task} key={key} />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DroppableColumn>
+            ))}
+
+            <DragOverlay>
+              {activeTask ? <TaskOverlay task={activeTask} /> : null}
+            </DragOverlay>
+          </div>
+        </DndContext>
       </main>
     </div>
   );
