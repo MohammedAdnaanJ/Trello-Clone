@@ -94,14 +94,14 @@ const Dashboard = () => {
   };
   const { user } = useUser();
 
-  // if (loading) {
-  //   return (
-  //     <div className="flex min-h-screen items-center justify-center">
-  //       <Loader2 />
-  //       <span>Loading Your Boards...</span>
-  //     </div>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 />
+        <span>Loading Your Boards...</span>
+      </div>
+    );
+  }
 
   if (error) {
     return (

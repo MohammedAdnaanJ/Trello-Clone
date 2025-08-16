@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +41,10 @@ const FilterDialog = ({
               id="search"
               placeholder="Search board title..."
               onChange={(e) =>
-                setIsFilters((prev) => ({ ...prev, search: e.target.value }))
+                setIsFilters((prev: any) => ({
+                  ...prev,
+                  search: e.target.value,
+                }))
               }
             />
           </div>
@@ -53,7 +57,7 @@ const FilterDialog = ({
                   id="start-date"
                   type="date"
                   onChange={(e) =>
-                    setIsFilters((prev) => ({
+                    setIsFilters((prev: { dateRange: any }) => ({
                       ...prev,
                       dateRange: {
                         ...prev.dateRange,
@@ -69,7 +73,7 @@ const FilterDialog = ({
                   id="end-date"
                   type="date"
                   onChange={(e) =>
-                    setIsFilters((prev) => ({
+                    setIsFilters((prev: { dateRange: any }) => ({
                       ...prev,
                       dateRange: {
                         ...prev.dateRange,
@@ -92,7 +96,7 @@ const FilterDialog = ({
                   placeholder="Min Tasks"
                   type="number"
                   onChange={(e) =>
-                    setIsFilters((prev) => ({
+                    setIsFilters((prev: { taskCount: any }) => ({
                       ...prev,
                       taskCount: {
                         ...prev.taskCount,
@@ -110,7 +114,7 @@ const FilterDialog = ({
                   placeholder="Max Tasks"
                   type="number"
                   onChange={(e) =>
-                    setIsFilters((prev) => ({
+                    setIsFilters((prev: { taskCount: any }) => ({
                       ...prev,
                       taskCount: {
                         ...prev.taskCount,
