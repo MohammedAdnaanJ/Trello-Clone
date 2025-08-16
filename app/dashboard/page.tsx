@@ -1,14 +1,6 @@
 "use client";
 import Navbar from "@/components/Navbar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useBoards } from "@/lib/hooks/useBoards";
 import { useUser } from "@clerk/nextjs";
@@ -25,13 +17,79 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import StatCard from "./components/StatCard";
+import BoardCard from "./components/BoardCard";
+import FilterDialog from "./components/FilterDialog";
+import { Board } from "@/lib/supabase/models";
+import { usePlan } from "@/lib/contexts/PlanContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 
 const Dashboard = () => {
   const { createBoard, boards, loading, error } = useBoards();
+  const router = useRouter();
+  const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState<boolean>(false);
+  const [filters, setIsFilters] = useState({
+    search: "",
+    dateRange: {
+      start: null as string | null,
+      end: null as string | null,
+    },
+    taskCount: {
+      min: null as number | null,
+      max: null as number | null,
+    },
+  });
 
+  const { isFreeUser } = usePlan();
+  const canCreateBoard = !isFreeUser || boards.length < 1;
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  // const hasProPlan = has({plan: "pro_user"})
+
+  const boardsWithTaskCount = boards.map((board) => ({
+    ...board,
+    taskCount: 0,
+  }));
+
+  const filterBoards = boardsWithTaskCount.filter((board: Board) => {
+    const matchesSearch = board.title
+      .toLowerCase()
+      .includes(filters.search.toLowerCase());
+
+    const matchesDateRange =
+      !filters.dateRange.start ||
+      (new Date(board.created_at) >= new Date(filters.dateRange.start) &&
+        (!filters.dateRange.end ||
+          new Date(board.created_at) <= new Date(filters.dateRange.end)));
+
+    return matchesSearch && matchesDateRange;
+  });
+
+  const clearFilters = () => {
+    setIsFilters({
+      search: "",
+      dateRange: {
+        start: null as string | null,
+        end: null as string | null,
+      },
+      taskCount: {
+        min: null as number | null,
+        max: null as number | null,
+      },
+    });
+  };
+
   const handleCreateBoard = async () => {
+    if (!canCreateBoard) {
+      setShowUpgradeDialog(true);
+      return;
+    }
     await createBoard({ title: "New Board" });
   };
   const { user } = useUser();
@@ -102,6 +160,7 @@ const Dashboard = () => {
             />
           </div>
         </section>
+
         {/* Boards */}
         <section className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
@@ -110,6 +169,9 @@ const Dashboard = () => {
                 Your Boards
               </h2>
               <p className="text-gray-600">Manage your Projects and Tasks.</p>
+              <p>
+                {isFreeUser && <p>Free Plan: {boards.length}/1 boards used.</p>}
+              </p>
             </div>
 
             <div
@@ -132,7 +194,13 @@ const Dashboard = () => {
                   <List />
                 </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => {}}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsFilterOpen(true);
+                }}
+              >
                 <Filter /> Filter
               </Button>
 
@@ -154,84 +222,29 @@ const Dashboard = () => {
               id="search"
               placeholder="Search boards..."
               className="pl-10"
+              onChange={(e) =>
+                setIsFilters((prev) => ({ ...prev, search: e.target.value }))
+              }
             />
           </div>
 
           {/* Boards Grid/List */}
-          {boards.length === 0 ? (
+          {filterBoards.length === 0 ? (
             <div>No Boards Yet.</div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {boards.map((board, key) => (
+              {filterBoards.map((board, key) => (
                 <Link key={key} href={`/boards/${board.id}`}>
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
-                    <CardHeader className="pb-3 ">
-                      <div className="flex items-center justify-between">
-                        <div className={`size-4 ${board.color} rounded`} />
-                        <Badge className="text-xs" variant="secondary">
-                          New
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-8">
-                      <CardTitle
-                        className={`text-base sm:text-lg mb-2 group-hover:text-${board.color} transition-colors`}
-                      >
-                        {board.title}
-                      </CardTitle>
-                      <CardDescription className="text-sm mb-4">
-                        {board.description}
-                      </CardDescription>
-                      <div className="flex flex-col sm:flex-row  sm:items-center sm:justify-between text-sm text-gray-500 space-y-1 sm:space-y-0">
-                        <span>
-                          created_at{" "}
-                          {new Date(board.created_at).toLocaleDateString()}
-                        </span>
-                        <span>
-                          updated_at{" "}
-                          {new Date(board.updated_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <BoardCard board={board} />
                 </Link>
               ))}
             </div>
           ) : (
             <div>
-              {boards.map((board, key) => (
+              {filterBoards.map((board, key) => (
                 <div key={key} className={key > 0 ? "mt-4" : ""}>
                   <Link href={`/boards/${board.id}`}>
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
-                      <CardHeader className="pb-3 ">
-                        <div className="flex items-center justify-between">
-                          <div className={`size-4 ${board.color} rounded`} />
-                          <Badge className="text-xs" variant="secondary">
-                            New
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-4 sm:p-8">
-                        <CardTitle
-                          className={`text-base sm:text-lg mb-2 group-hover:text-${board.color} transition-colors`}
-                        >
-                          {board.title}
-                        </CardTitle>
-                        <CardDescription className="text-sm mb-4">
-                          {board.description}
-                        </CardDescription>
-                        <div className="flex flex-col sm:flex-row  sm:items-center sm:justify-between text-sm text-gray-500 space-y-1 sm:space-y-0">
-                          <span>
-                            created_at{" "}
-                            {new Date(board.created_at).toLocaleDateString()}
-                          </span>
-                          <span>
-                            updated_at{" "}
-                            {new Date(board.updated_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <BoardCard board={board} />
                   </Link>
                 </div>
               ))}
@@ -239,6 +252,36 @@ const Dashboard = () => {
           )}
         </section>
       </main>
+
+      {/* Filter Dialog */}
+      <FilterDialog
+        isOpen={isFilterOpen}
+        onOpenChange={() => setIsFilterOpen(false)}
+        setIsFilters={setIsFilters}
+        clearFilters={clearFilters}
+        setIsFilterOpen={setIsFilterOpen}
+      />
+
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent className="w-[95vw] max-w-[425px] mx-auto">
+          <DialogHeader>
+            <DialogTitle>Upgrade to Create More Boards</DialogTitle>
+            <p className="text-sm text-gray-600">
+              Free users can only create one board. Upgrade to Pro or Enterprise
+              to create unlimited boards.
+            </p>
+          </DialogHeader>
+          <div className="flex justify-end space-x-4 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowUpgradeDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => router.push("/pricing")}>View Plans</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
